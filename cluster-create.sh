@@ -9,9 +9,11 @@ INSTANCE_TYPE=$(cat settings.json | jq -r '.instanceType')
 KEY_PAIR=$(cat settings.json | jq -r '.keyPair')
 PACKAGE_NAME=$(cat settings.json | jq -r '.packageName')
 PACKAGE_VERSION=$(cat settings.json | jq -r '.packageVersion')
+REGION=$(aws configure get region)
 
 # Constants
 CIDR=10.0.0.0/21
+DOMAIN=$CLUSTER_ID
 
 # Find image
 echo "Finding image for '$PACKAGE_NAME-$PACKAGE_VERSION' ..."
@@ -70,13 +72,38 @@ IPs=$(nmap -sL $CIDR | grep "Nmap scan report" | awk '{print $NF}' |  tail -n +1
 # Create EC2 instances
 echo -n "Launching instances with image $IMAGE_ID ..."
 for IP in $IPs; do
-  OUTPUT=$(aws ec2 run-instances --count 1 --image-id=$IMAGE_ID --instance-type $INSTANCE_TYPE --key-name $KEY_PAIR --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --private-ip-address $IP --user-data file://./startup.sh)
+  DATA=$(<ec2.userdata.txt)
+  DATA=${DATA/@BOOTSTRAP@/bootstrap.$DOMAIN}
+
+  OUTPUT=$(aws ec2 run-instances --count 1 --image-id=$IMAGE_ID --instance-type $INSTANCE_TYPE --key-name $KEY_PAIR --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --private-ip-address $IP --user-data "$DATA")
   INSTANCE_ID=$(echo $OUTPUT | jq -r '.Instances[0].InstanceId')
   aws ec2 create-tags --resources $INSTANCE_ID --tags Key=Name,Value=$CLUSTER_ID > /dev/null
   echo -n "."
 done
 
 echo " done."
+
+
+echo "Creating DNS domain '.$DOMAIN' ..."
+
+# Enable DNS support on the VPC
+aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-hostnames > /dev/null
+aws ec2 modify-vpc-attribute --vpc-id $VPC_ID --enable-dns-support > /dev/null
+
+# Create Route53 domain
+REF=$(date +%s)
+OUTPUT=$(aws route53 create-hosted-zone --caller-reference $REF --name $DOMAIN --vpc VPCRegion=$REGION,VPCId=$VPC_ID)
+ZONE_ID_RAW=$(echo $OUTPUT | jq -r '.HostedZone.Id')
+ZONE_ID=${ZONE_ID_RAW:12}
+
+# Add domain record for the bootstrap node
+IP0=$(echo $IPs | awk '{print $1}')
+INPUT=$(<route53.record.a.json)
+INPUT=${INPUT/@ACTION@/CREATE}
+INPUT=${INPUT/@NAME@/bootstrap.$DOMAIN}
+INPUT=${INPUT/@TARGET@/$IP0}
+
+aws route53 change-resource-record-sets --hosted-zone-id $ZONE_ID --change-batch "$INPUT" > /dev/null
 
 # Waiting for all instances to be ready
 OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=Name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)

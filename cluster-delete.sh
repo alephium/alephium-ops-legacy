@@ -7,6 +7,9 @@ CLUSTER_ID=$1
 PACKAGE_NAME=$(cat settings.json | jq -r '.packageName')
 PACKAGE_VERSION=$(cat settings.json | jq -r '.packageVersion')
 
+# Arguments (dynamic)
+DOMAIN=$CLUSTER_ID
+
 # Terminate all instances
 OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
 INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
@@ -34,6 +37,19 @@ do
 done
 
 echo " done."
+
+# Remove Route53 records and domain
+OUTPUT=$(aws route53 list-hosted-zones-by-name --dns-name $DOMAIN)
+ZONE_ID_RAW=$(echo $OUTPUT | jq -r '.HostedZones[0].Id')
+ZONE_ID=${ZONE_ID_RAW:12}
+
+OUTPUT=$(aws route53 list-resource-record-sets --hosted-zone-id $ZONE_ID)
+RECORD=$(echo $OUTPUT | jq -r '.ResourceRecordSets[2]')
+
+CHANGE="{\"Changes\": [{\"Action\": \"DELETE\", \"ResourceRecordSet\": $RECORD }]}"
+aws route53 change-resource-record-sets --hosted-zone-id $ZONE_ID --change-batch "$CHANGE" > /dev/null
+
+aws route53 delete-hosted-zone --id $ZONE_ID > /dev/null
 
 # TODO Remove VPC
 OUTPUT=$(aws ec2 describe-vpcs --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID)

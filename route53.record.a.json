@@ -1,0 +1,13 @@
+{
+  "Changes": [{
+    "Action": "@ACTION@",
+    "ResourceRecordSet": {
+      "Name": "@NAME@",
+      "Type": "A",
+      "TTL": 300,
+      "ResourceRecords": [{
+        "Value": "@TARGET@"
+      }]
+    }
+  }]
+}
