@@ -80,7 +80,7 @@ echo " done."
 
 # Waiting for all instances to be ready
 OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=Name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
-INSTANCES=$(echo $OUTPUT | jq -r '.Reservations[0].Instances | length')
+INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 
 echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE)"
 
@@ -88,7 +88,7 @@ while [ $INSTANCES != $CLUSTER_SIZE ]
 do
   sleep 1
   OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=Name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
-  INSTANCES=$(echo $OUTPUT | jq -r '.Reservations[0].Instances | length')
+  INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
   echo -en "\e[0K\r"
   echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE)"
 done

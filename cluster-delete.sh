@@ -9,7 +9,7 @@ PACKAGE_VERSION=$(cat settings.json | jq -r '.packageVersion')
 
 # Terminate all instances
 OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
-INSTANCES=$(echo $OUTPUT | jq -r '.Reservations[0].Instances | length')
+INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 
 echo "Terminating $INSTANCES instances ..."
 
@@ -17,7 +17,7 @@ I=0
 
 while [ $INSTANCES != $I ]
 do
-  INSTANCE_ID=$(echo $OUTPUT | jq -r ".Reservations[0].Instances[$I].InstanceId")
+  INSTANCE_ID=$(echo $OUTPUT | jq -r ".Reservations[$I].Instances[0].InstanceId")
   aws ec2 terminate-instances --instance-ids $INSTANCE_ID > /dev/null
   let "I++"
 done
@@ -28,7 +28,7 @@ while [ $INSTANCES != 0 ]
 do
   sleep 1
   OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
-  INSTANCES=$(echo $OUTPUT | jq -r '.Reservations[0].Instances | length')
+  INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
   echo -en "\e[0K\r"
   echo -n "Waiting for instances to be all stopped ... ($INSTANCES runnings)"
 done
