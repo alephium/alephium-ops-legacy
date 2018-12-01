@@ -41,6 +41,10 @@ One can SSH to them, and print the log output.
   tail -f /var/log/cloud-init-output.log
   
 
+One can also use `pssh` to access multiple instances at once.
+
+  ./cluster-pssh.sh foo "tail /var/log/cloud-init-output.log"
+
 ### cluster-delete
 
 You can delete the cluster once you are done with it using `./cluster-delete.sh $CLUSTER_ID`.
