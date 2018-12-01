@@ -34,7 +34,7 @@ DATA=${DATA/_publicAddress_/@publicAddress@}
 DATA=${DATA/_nodes_/@nodes@}
 DATA=${DATA/_zeros_/@zeros@}
 
-echo "$DATA" > /root/.alephium/user_prod.conf
+echo "$DATA" > /root/.alephium/user.conf
 
 # Startup
 export ALEPHIUM_ENV=prod

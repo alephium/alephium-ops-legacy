@@ -1,4 +1,3 @@
-
 akka {
   loglevel = "DEBUG"
   loggers = ["akka.event.slf4j.Slf4jLogger"]
@@ -48,9 +47,15 @@ alephium {
     udpPort = ${alephium.port}
     peersPerGroup = 16
     scanMaxPerGroup = 8
-    scanFrequency = 12.seconds
+    scanFrequency = 120.seconds
+    scanFastFrequency = 10.seconds
     neighborsPerGroup = 8
   }
+
+  rpc {
+    viewerBlockAgeLimit = 1 hours
+  }
+
   bootstrap="_bootstrap_"
 }
 
