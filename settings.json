@@ -1,0 +1,6 @@
+{
+  "instanceType": "t2.micro",
+  "keyPair": "default",
+  "packageName": "alephium-echo",
+  "packageVersion": "0.1"
+}

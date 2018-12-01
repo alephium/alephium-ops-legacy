@@ -1,0 +1,3 @@
+.aws/config
+default.pem
+*.zip
