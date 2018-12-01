@@ -23,14 +23,14 @@ Note: every resources created by `image-create` are tagged using $PACKAGE_NAME-$
 - Add `default.pem`
   - https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html#having-ec2-create-your-key-pair
 
-- Populate `settings.json`
-  - Add package file `<name>-<version>.zip` in project root
+- Copy `settings.json.tmpl` as `settings.json` and populate accordingly
+  - Add package file `<packageId>.zip` in project root
 
 - Build the AMI image with `./image-create.sh`
 
 ### cluster-create
 
-- Once the image is ready, one can start a new cluster with `./cluster-create.sh $CLUSTER_ID $CLUSTER_SIZE`
+- Once the image is ready, one can start a new cluster with `./cluster-create.sh $CLUSTER_ID`
 
 The EC2 console ("Instances") show public IP addresses of nodes, which can be used to communicate with them.
 
@@ -43,7 +43,16 @@ One can SSH to them, and print the log output.
 
 One can also use `pssh` to access multiple instances at once.
 
-  ./cluster-pssh.sh foo "tail /var/log/cloud-init-output.log"
+  ./cluster-pssh.sh foo "tail /var/log/alephium.log"
+
+Here is an other example to start mining on the whole cluster.
+
+  ./cluster-pssh.sh foo "curl -X PUT localhost:8080/mining"
+
+## TODO
+
+- Upload the application to a S3 bucket, and then fetch from there.
+  - Add `cluster-update`
 
 ### cluster-delete
 

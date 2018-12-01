@@ -5,10 +5,10 @@
 # Load settings
 INSTANCE_TYPE=$(cat settings.json | jq -r '.instanceType')
 KEY_PAIR=$(cat settings.json | jq -r '.keyPair')
-PACKAGE_NAME=$(cat settings.json | jq -r '.packageName')
-PACKAGE_VERSION=$(cat settings.json | jq -r '.packageVersion')
+PACKAGE_ID=$(cat settings.json | jq -r '.packageId')
+PACKAGE_APP=$(cat settings.json | jq -r '.packageApp')
 
-PACKAGE_FILE=$PACKAGE_NAME-$PACKAGE_VERSION.zip
+PACKAGE_FILE=$PACKAGE_ID.zip
 
 # Commands
 scp='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i default.pem'
@@ -26,17 +26,17 @@ if [ "$SECURITY_GROUP_ID" == "null" ]; then
 fi
 
 # Check if an AMI for this package version already exists
-OUTPUT=$(aws ec2 describe-images --filters Name=tag-key,Values=name,Name=tag-value,Values=$PACKAGE_NAME-$PACKAGE_VERSION --owners self)
+OUTPUT=$(aws ec2 describe-images --filters Name=tag-key,Values=name,Name=tag-value,Values=$PACKAGE_ID --owners self)
 IMAGE_ID=$(echo $OUTPUT | jq -r '.Images[0].ImageId')
 if [ "$IMAGE_ID" != "null" ]; then
-  echo "An image $IMAGE_ID already exists for $PACKAGE_NAME-$PACKAGE_VERSION, please run './image-delete.sh' before trying to recreate it."
+  echo "An image $IMAGE_ID already exists for $PACKAGE_ID, please run './image-delete.sh' before trying to recreate it."
   exit 1
 fi
 
 # Create and start instance
 OUTPUT=$(aws ec2 run-instances --count 1 --image-id=ami-40142d25 --instance-type $INSTANCE_TYPE --key-name $KEY_PAIR --security-group-ids $SECURITY_GROUP_ID )
 INSTANCE_ID=$(echo $OUTPUT | jq -r '.Instances[0].InstanceId')
-aws ec2 create-tags --resources $INSTANCE_ID --tags Key=Name,Value=$PACKAGE_NAME-$PACKAGE_VERSION > /dev/null
+aws ec2 create-tags --resources $INSTANCE_ID --tags Key=Name,Value=$PACKAGE_ID > /dev/null
 
 echo -n "Starting instance $INSTANCE_ID (from vanilla Linux AMI) ..."
 
@@ -68,28 +68,40 @@ $ssh ec2-user@$PUBLIC_IP << EOF
 EOF
 
 # Copy and install application
+echo -n "Install application ..."
 $scp $PACKAGE_FILE ec2-user@$PUBLIC_IP:~
 
 $ssh ec2-user@$PUBLIC_IP << EOF
   cd /srv
   sudo unzip ~/$PACKAGE_FILE; rm ~/$PACKAGE_FILE
-  sudo ln -s /srv/$PACKAGE_NAME-$PACKAGE_VERSION/bin/$PACKAGE_NAME /srv/app
+  sudo chmod +x /srv/$PACKAGE_ID/$PACKAGE_APP
+  sudo ln -s /srv/$PACKAGE_ID/$PACKAGE_APP /srv/app
+EOF
+
+# Prepare home folder
+echo -n "Preparing the home folder ..."
+$scp -r ./home ec2-user@$PUBLIC_IP:~
+
+$ssh ec2-user@$PUBLIC_IP << EOF
+  sudo chown -R root:root ~/home
+  sudo cp -a ~/home/. /root/
+  sudo rm -rf ~/home
 EOF
 
 # Create the AMI image
 echo ""
 echo -n "Create image ..."
-OUTPUT=$(aws ec2 create-image --instance-id $INSTANCE_ID --name $PACKAGE_NAME-$PACKAGE_VERSION)
+OUTPUT=$(aws ec2 create-image --instance-id $INSTANCE_ID --name $PACKAGE_ID)
 IMAGE_ID=$(echo $OUTPUT | jq -r '.ImageId')
-aws ec2 create-tags --resources $IMAGE_ID --tags Key=Name,Value=$PACKAGE_NAME-$PACKAGE_VERSION > /dev/null
+aws ec2 create-tags --resources $IMAGE_ID --tags Key=Name,Value=$PACKAGE_ID > /dev/null
 
-OUTPUT=$(aws ec2 describe-images --filters Name=name,Values=$PACKAGE_NAME-$PACKAGE_VERSION)
+OUTPUT=$(aws ec2 describe-images --filters Name=name,Values=$PACKAGE_ID)
 IMAGE_STATE=$(echo $OUTPUT | jq -r '.Images[0].State')
 
 while [ "$IMAGE_STATE" != "available" ]
 do
   sleep 1
-  OUTPUT=$(aws ec2 describe-images --filters Name=name,Values=$PACKAGE_NAME-$PACKAGE_VERSION)
+  OUTPUT=$(aws ec2 describe-images --filters Name=name,Values=$PACKAGE_ID)
   IMAGE_STATE=$(echo $OUTPUT | jq -r '.Images[0].State')
   echo -n "."
 done
@@ -99,11 +111,11 @@ echo " done."
 # Tag volume and snapshot
 OUTPUT=$(aws ec2 describe-volumes --filters Name=attachment.instance-id,Values=$INSTANCE_ID)
 VOLUME_ID=$(echo $OUTPUT | jq -r '.Volumes[0].VolumeId')
-aws ec2 create-tags --resources $VOLUME_ID --tags Key=Name,Value=$PACKAGE_NAME-$PACKAGE_VERSION > /dev/null
+aws ec2 create-tags --resources $VOLUME_ID --tags Key=Name,Value=$PACKAGE_ID > /dev/null
 
 OUTPUT=$(aws ec2 describe-snapshots --filters Name=volume-id,Values=$VOLUME_ID)
 SNAPSHOT_ID=$(echo $OUTPUT | jq -r '.Snapshots[0].SnapshotId')
-aws ec2 create-tags --resources $SNAPSHOT_ID --tags Key=Name,Value=$PACKAGE_NAME-$PACKAGE_VERSION > /dev/null
+aws ec2 create-tags --resources $SNAPSHOT_ID --tags Key=Name,Value=$PACKAGE_ID > /dev/null
 
 # Terminate instance and untag it
 aws ec2 terminate-instances --instance-ids $INSTANCE_ID > /dev/null
@@ -111,6 +123,6 @@ aws ec2 delete-tags --resources $INSTANCE_ID > /dev/null
 
 # Finish
 echo ""
-echo "Amazon Machine Image '$PACKAGE_NAME-$PACKAGE_VERSION' is ready: '$IMAGE_ID'"
+echo "Amazon Machine Image '$PACKAGE_ID' is ready: '$IMAGE_ID'"
 echo ""
 

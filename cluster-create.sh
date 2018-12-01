@@ -2,22 +2,33 @@
 
 # Arguments
 CLUSTER_ID=$1
-CLUSTER_SIZE=$2 # [1 >=< (2046 - 10)] - Change CIDR to increase, first ten addresses are reserved by AWS.
 
 # Load settings
 INSTANCE_TYPE=$(cat settings.json | jq -r '.instanceType')
 KEY_PAIR=$(cat settings.json | jq -r '.keyPair')
-PACKAGE_NAME=$(cat settings.json | jq -r '.packageName')
-PACKAGE_VERSION=$(cat settings.json | jq -r '.packageVersion')
+PACKAGE_ID=$(cat settings.json | jq -r '.packageId')
+
+CLUSTER_GROUPS=$(cat settings.json | jq -r '.cluster.groups')
+CLUSTER_SIZE=$(cat settings.json | jq -r '.cluster.nodes')
+CLUSTER_ZEROS=$(cat settings.json | jq -r '.cluster.zeros')
+
 REGION=$(aws configure get region)
 
 # Constants
 CIDR=10.0.0.0/21
 DOMAIN=$CLUSTER_ID
 
+# Find nonces
+NONCES_FILE="nonces-$CLUSTER_GROUPS-$CLUSTER_ZEROS.conf"
+if [ ! -f ~/.alephium/$NONCES_FILE ]; then
+  echo "The requiered file $NONCES_FILE is not found in ~/.alephium!"
+  exit 1
+fi
+NONCES=$(<~/.alephium/$NONCES_FILE)
+
 # Find image
-echo "Finding image for '$PACKAGE_NAME-$PACKAGE_VERSION' ..."
-OUTPUT=$(aws ec2 describe-images --filters Name=tag-key,Values=name,Name=tag-value,Values=$PACKAGE_NAME-$PACKAGE_VERSION --owners self)
+echo "Finding image for '$PACKAGE_ID' ..."
+OUTPUT=$(aws ec2 describe-images --filters Name=tag-key,Values=name,Name=tag-value,Values=$PACKAGE_ID --owners self)
 IMAGE_ID=$(echo $OUTPUT | jq -r '.Images[0].ImageId')
 IMAGE_STATE=$(echo $OUTPUT | jq -r '.Images[0].State')
 
@@ -71,14 +82,33 @@ IPs=$(nmap -sL $CIDR | grep "Nmap scan report" | awk '{print $NF}' |  tail -n +1
 
 # Create EC2 instances
 echo -n "Launching instances with image $IMAGE_ID ..."
+
+I=0
 for IP in $IPs; do
   DATA=$(<ec2.userdata.txt)
-  DATA=${DATA/@BOOTSTRAP@/bootstrap.$DOMAIN}
+
+  DATA=${DATA/@nonces@/$NONCES}
+  DATA=${DATA/@noncesFile@/$NONCES_FILE}
+
+  if [ "$I" == "0" ]; then
+    DATA=${DATA/@bootstrap@/}
+  else
+    DATA=${DATA/@bootstrap@/bootstrap.$DOMAIN:9973}
+  fi
+
+  DATA=${DATA/@groups@/$CLUSTER_GROUPS}
+  DATA=${DATA/@nodes@/$CLUSTER_SIZE}
+  DATA=${DATA/@zeros@/$CLUSTER_ZEROS}
+
+  DATA=${DATA/@mainGroup@/$I}
+  DATA=${DATA/@publicAddress@/$IP}
 
   OUTPUT=$(aws ec2 run-instances --count 1 --image-id=$IMAGE_ID --instance-type $INSTANCE_TYPE --key-name $KEY_PAIR --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --private-ip-address $IP --user-data "$DATA")
   INSTANCE_ID=$(echo $OUTPUT | jq -r '.Instances[0].InstanceId')
   aws ec2 create-tags --resources $INSTANCE_ID --tags Key=Name,Value=$CLUSTER_ID > /dev/null
   echo -n "."
+
+  let "I++"
 done
 
 echo " done."

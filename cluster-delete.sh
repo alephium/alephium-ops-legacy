@@ -4,8 +4,6 @@
 CLUSTER_ID=$1
 
 # Load settings
-PACKAGE_NAME=$(cat settings.json | jq -r '.packageName')
-PACKAGE_VERSION=$(cat settings.json | jq -r '.packageVersion')
 
 # Arguments (dynamic)
 DOMAIN=$CLUSTER_ID

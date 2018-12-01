@@ -1,0 +1,56 @@
+
+akka {
+  loglevel = "DEBUG"
+  loggers = ["akka.event.slf4j.Slf4jLogger"]
+  logging-filter = "akka.event.slf4j.Slf4jLoggingFilter"
+
+  io.tcp.register-timeout = 1m
+
+  actor {
+    default-dispatcher {
+      executor = "fork-join-executor"
+      fork-join-executor {
+        parallelism-factor = 0.5
+      }
+      throughput = 1
+    }
+
+    mining-dispatcher {
+      type = Dispatcher
+      executor = "fork-join-executor"
+      fork-join-executor {
+        parallelism-factor = 0.5
+      }
+      throughput = 1
+    }
+
+    guardian-supervisor-strategy = "org.alephium.util.DefaultStrategy"
+  }
+}
+
+alephium {
+  numZerosAtLeastInHash = _zeros_
+  blockTargetTime = 4 minutes
+  blockConfirmNum = 10
+  retargetInterval = 180 // number of blocks; about 12 hours
+
+  port = 9973
+  groups = _groups_
+  pingFrequency = 300 second
+  retryTimeout = 300 second
+
+  nonceStep = 10000
+
+  mainGroup = _mainGroup_
+
+  discovery {
+    publicAddress = "_publicAddress_"
+    udpPort = ${alephium.port}
+    peersPerGroup = 16
+    scanMaxPerGroup = 8
+    scanFrequency = 12.seconds
+    neighborsPerGroup = 8
+  }
+  bootstrap="_bootstrap_"
+}
+

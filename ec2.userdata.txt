@@ -21,7 +21,23 @@ Content-Disposition: attachment; filename="userdata.txt"
 set -x
 exec > >(tee /var/log/user-data.log|logger -t user-data ) 2>&1
 
+# Setup nonces
+echo "@nonces@" > /root/.alephium/@noncesFile@
+
+# Setup configuration
+DATA=$(</root/.alephium/user_prod.conf.tmpl)
+
+DATA=${DATA/_bootstrap_/@bootstrap@}
+DATA=${DATA/_groups_/@groups@}
+DATA=${DATA/_mainGroup_/@mainGroup@}
+DATA=${DATA/_publicAddress_/@publicAddress@}
+DATA=${DATA/_nodes_/@nodes@}
+DATA=${DATA/_zeros_/@zeros@}
+
+echo "$DATA" > /root/.alephium/user_prod.conf
+
 # Startup
-export bootstrap=@BOOTSTRAP@
+export ALEPHIUM_ENV=prod
+
 /srv/app > /var/log/alephium.log 2>&1 &
 --//

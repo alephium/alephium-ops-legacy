@@ -1,3 +1,4 @@
 .aws/config
 default.pem
+settings.json
 *.zip

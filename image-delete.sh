@@ -1,5 +1,9 @@
 #!/usr/bin/env sh
 
+# TODO FIX
+echo "This script is currently broken, please remove the AMI and the snapshot by hand."
+exit 1
+
 # No arguments
 
 # Load settings
