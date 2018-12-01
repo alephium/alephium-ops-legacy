@@ -14,7 +14,7 @@ scp='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i default.
 ssh='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -T -i default.pem'
 
 # List all instances
-OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
 INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 CLUSTER_SIZE=$INSTANCES
 
@@ -37,7 +37,7 @@ echo ""
 echo "Done."
 
 # Waiting for all instances to be ready
-OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=Name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
 INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 
 echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE)"
@@ -45,7 +45,7 @@ echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE
 while [ $INSTANCES != $CLUSTER_SIZE ]
 do
   sleep 1
-  OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=Name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+  OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
   INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
   echo -en "\e[0K\r"
   echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE)"

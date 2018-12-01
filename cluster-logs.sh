@@ -8,7 +8,7 @@ scp='scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i default.
 ssh='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -T -i default.pem'
 
 # List all instances
-OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
 INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 
 I=0
@@ -25,7 +25,7 @@ do
   INSTANCE_ID=$(echo $OUTPUT | jq -r ".Reservations[$I].Instances[0].InstanceId")
   PUBLIC_IP=$(echo $OUTPUT | jq -r ".Reservations[$I].Instances[0].PublicIpAddress")
 
-  $scp ec2-user@$PUBLIC_IP:/var/log/alephium.log $LOGS/$CLUSTER_ID-$I.log
+  $scp ec2-user@$PUBLIC_IP:/alephium.log $LOGS/$CLUSTER_ID-$I.log
 
   let "I++"
 done

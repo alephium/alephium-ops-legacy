@@ -6,7 +6,7 @@ CLUSTER_ID=$1
 # Load settings
 
 # List all instances
-OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
 INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 
 I=0

@@ -100,7 +100,7 @@ for IP in $IPs; do
   DATA=${DATA/@nodes@/$CLUSTER_SIZE}
   DATA=${DATA/@zeros@/$CLUSTER_ZEROS}
 
-  DATA=${DATA/@mainGroup@/$I}
+  DATA=${DATA/@mainGroup@/$(($I % $CLUSTER_GROUPS))}
   DATA=${DATA/@publicAddress@/$IP}
 
   OUTPUT=$(aws ec2 run-instances --count 1 --image-id=$IMAGE_ID --instance-type $INSTANCE_TYPE --key-name $KEY_PAIR --security-group-ids $SECURITY_GROUP_ID --subnet-id $SUBNET_ID --private-ip-address $IP --user-data "$DATA")
@@ -136,7 +136,7 @@ INPUT=${INPUT/@TARGET@/$IP0}
 aws route53 change-resource-record-sets --hosted-zone-id $ZONE_ID --change-batch "$INPUT" > /dev/null
 
 # Waiting for all instances to be ready
-OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=Name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
 INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 
 echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE)"
@@ -144,7 +144,7 @@ echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE
 while [ $INSTANCES != $CLUSTER_SIZE ]
 do
   sleep 1
-  OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=Name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+  OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
   INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
   echo -en "\e[0K\r"
   echo -n "Waiting for instances to be all running ... ($INSTANCES / $CLUSTER_SIZE)"

@@ -9,7 +9,7 @@ CLUSTER_ID=$1
 DOMAIN=$CLUSTER_ID
 
 # Terminate all instances
-OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
 INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
 
 echo "Terminating $INSTANCES instances ..."
@@ -28,7 +28,7 @@ echo -n "Waiting for instances to be all stopped ... ($INSTANCES runnings)"
 while [ $INSTANCES != 0 ]
 do
   sleep 1
-  OUTPUT=$(aws ec2 describe-instances --filters Name=tag-key,Values=name,Name=tag-value,Values=$CLUSTER_ID,Name=instance-state-name,Values=running)
+  OUTPUT=$(aws ec2 describe-instances --filters Name=tag:Name,Values=$CLUSTER_ID Name=instance-state-name,Values=running)
   INSTANCES=$(echo $OUTPUT | jq -r '.Reservations | length')
   echo -en "\e[0K\r"
   echo -n "Waiting for instances to be all stopped ... ($INSTANCES runnings)"
