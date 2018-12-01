@@ -1,5 +1,5 @@
 {
-  "instanceType": "t2.micro",
+  "instanceType": "t2.nano",
   "keyPair": "default",
   "packageName": "alephium-echo",
   "packageVersion": "0.1"

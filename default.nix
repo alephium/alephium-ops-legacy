@@ -6,7 +6,7 @@ with import <nixpkgs> {}; {
       export AWS_CONFIG_FILE=./.aws/config
     '';
     buildInputs = [
-      awscli docker jq
+      awscli docker ipcalc jq openssh
     ];
   };
 }
