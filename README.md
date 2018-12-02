@@ -43,7 +43,7 @@ One can SSH to them, and print the log output.
 
 One can also use `pssh` to access multiple instances at once.
 
-  ./cluster-pssh.sh foo "tail /var/log/alephium.log"
+  ./cluster-pssh.sh foo "tail /root/.alephium/logs/alephium.log"
 
 Here is an other example to start mining on the whole cluster.
 

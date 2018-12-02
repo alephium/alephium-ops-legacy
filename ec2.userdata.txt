@@ -36,6 +36,12 @@ DATA=${DATA/_zeros_/@zeros@}
 
 echo "$DATA" > /root/.alephium/user.conf
 
+# Setup logs
+mkdir /root/.alephium/logs
+chmod ug+r /root/.alephium/logs
+
+ln -s /root/.alephium/logs /var/log/alephium
+
 # Startup
 export ALEPHIUM_ENV=prod
 export ALEPHIUM_HOME=/root/.alephium/
