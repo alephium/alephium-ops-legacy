@@ -1,4 +1,6 @@
+.env
 .aws/config
 default.pem
 settings.json
+*.pyc
 *.zip

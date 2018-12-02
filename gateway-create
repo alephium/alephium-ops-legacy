@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+import boto3
+import sys
+import time
+
+from lib import *
+
+cluster_id = sys.argv[1]
+
+ec2 = boto3.client('ec2')
+
+settings = settings_read()
+
+vpc_id = vpc_default(ec2)
+security_group_id = security_group_find_or_create(ec2, vpc_id, "gateways", [22, 80, 443])
+
+instances = ec2.run_instances(
+  ImageId=image_amzn_ami_x64,
+  InstanceType=settings['instanceType'],
+  KeyName=settings['keyPair'],
+  SecurityGroupIds=[security_group_id],
+  MinCount=1,
+  MaxCount=1
+)['Instances']
+
+if len(instances) < 1:
+  print('Could not start EC2 instance!')
+  sys.exit(1)
+
+time.sleep(0.5)
+
+instance = boto3.resource('ec2').Instance(instances[0]['InstanceId'])
+
+name = '%s.gateway'%(cluster_id)
+
+instance.create_tags(Tags=[{'Key':'Name', 'Value': name}])
+
+print('Starting instance %s (name=%s) ...'%(instance.instance_id, name), end ='')
+sys.stdout.flush()
+
+state = ""
+while (state != "ok"):
+  time.sleep(1)
+  statuses=ec2.describe_instance_status(InstanceIds=[instance.instance_id])['InstanceStatuses']
+  if len(statuses) > 0:
+    state=statuses[0]['SystemStatus']['Status']
+    print('.', end='')
+    sys.stdout.flush()
+
+print(' done.')
+
+instances = ec2.describe_instances(InstanceIds=[instance.instance_id])['Reservations'][0]['Instances']
+if len(instances) < 1:
+  print('Could not start find EC2 instance IP address!')
+  sys.exit(1)
+
+public_ip=instances[0]['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
+
+print('Installing docker at %s ...'%(public_ip))
+
+call_ssh(public_ip, """
+  sudo amazon-linux-extras install docker
+  sudo service docker start
+  sudo usermod -aG docker ec2-user
+""")
+
+print('')
+print('Uploading docker image (`nginx-gateway`) and website (`../www`) ...')
+
+sys_call("tar cvfz nginx-gateway.tgz --exclude='.*' --exclude='node_modules' -h nginx-gateway")
+call_scp(public_ip, 'nginx-gateway.tgz', '~')
+sys_call('rm nginx-gateway.tgz')
+
+print('')
+print('Start docker container ...')
+
+call_ssh(public_ip, """
+  tar xvfz nginx-gateway.tgz
+  cd nginx-gateway
+  ./run.sh
+""")
+
+print('')
+print('Gateway ready at %s (%s)'%(public_ip, instance.id))
