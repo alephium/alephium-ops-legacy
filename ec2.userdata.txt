@@ -25,7 +25,7 @@ exec > >(tee /var/log/user-data.log|logger -t user-data ) 2>&1
 echo "@nonces@" > /root/.alephium/@noncesFile@
 
 # Setup configuration
-DATA=$(</root/.alephium/user_prod.conf.tmpl)
+DATA=$(</root/.alephium/user.conf.tmpl)
 
 DATA=${DATA/_bootstrap_/@bootstrap@}
 DATA=${DATA/_groups_/@groups@}
@@ -38,6 +38,7 @@ echo "$DATA" > /root/.alephium/user.conf
 
 # Startup
 export ALEPHIUM_ENV=prod
+export ALEPHIUM_HOME=/root/.alephium/
 
-/srv/app > /var/log/alephium.log 2>&1 &
+/srv/app > /dev/null 2>&1 &
 --//
