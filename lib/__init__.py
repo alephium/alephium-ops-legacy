@@ -1,4 +1,4 @@
-import boto3
+
 import json
 import subprocess
 import sys
@@ -37,17 +37,24 @@ def instance_start(ec2, settings, security_group_id, userdata=''):
     instance = boto3.resource('ec2').Instance(instances[0]['InstanceId'])
     return instance
 
-def security_group_find_or_create(ec2, vpc_id, name, ports):
+def security_group_find(ec2, name):
     filters = [{'Name': 'tag:Name', 'Values': [name]}]
     groups = ec2.describe_security_groups(Filters=filters)['SecurityGroups']
     if len(groups) < 1:
+        return None
+    else:
+        return groups[0]['GroupId']
+
+def security_group_find_or_create(ec2, name, vpc_id, ports):
+    group_id = security_group_find(ec2, name)
+
+    if group_id == None:
         group_id = ec2.create_security_group(GroupName=name, Description=name, VpcId=vpc_id)['GroupId']
         group = boto3.resource('ec2').SecurityGroup(group_id)
         group.create_tags(Tags=[{'Key':'Name', 'Value': name}])
         security_group_ingress_authorize(group, ports)
-        return group_id
-    else:
-        return groups[0]['GroupId']
+
+    return group_id
 
 def security_group_ingress_authorize(group, ports):
     for port in ports:
@@ -57,6 +64,15 @@ def security_group_ingress_authorize(group, ports):
             ToPort=port,
             IpProtocol='tcp'
         )
+
+def subnet_find(ec2, name):
+    filters = [{'Name': 'tag:Name', 'Values': [name]}]
+    subnets = ec2.describe_subnets(Filters=filters)['Subnets']
+    if len(subnets) < 1:
+        return None
+    else:
+        return subnets[0]['SubnetId']
+
 
 def settings_read():
     with open('settings.json') as json_data:
@@ -78,10 +94,17 @@ def vpc_default(ec2):
         sys.exit(1)
     return vpcs[0]['VpcId']
 
+def vpc_find(ec2, name):
+    filters = [{'Name': 'tag:Name', 'Values': [name]}]
+    vpcs = ec2.describe_vpcs(Filters=filters)['Vpcs']
+    if len(vpcs) < 1:
+        print("Default VPC not found!")
+        sys.exit(1)
+    return vpcs[0]['VpcId']
+
 # Internals
 def call_scp(public_ip, local, target, flags=""):
     sys_call(scp + ' %s %s ec2-user@%s:%s'%(flags, local, public_ip, target))
 
 def call_ssh(public_ip, script):
     print(sys_process(ssh + ' ec2-user@%s'%(public_ip), script))
-

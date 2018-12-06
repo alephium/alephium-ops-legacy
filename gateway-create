@@ -5,20 +5,37 @@ import time
 
 from lib import *
 
-cluster_id = sys.argv[1]
+cluster_id          = sys.argv[1]
+# TODO Take local target ip (10.0.0.26) as argument, or compute. Currently it's hardcoded in nginx.conf.
+# rpc_target_ip       = sys.argv[2]
 
 ec2 = boto3.client('ec2')
 
 settings = settings_read()
 
-vpc_id = vpc_default(ec2)
-security_group_id = security_group_find_or_create(ec2, vpc_id, "gateways", [22, 80, 443])
+vpc_id = vpc_find(ec2, cluster_id)
+
+name = "%s.gateway"%(cluster_id)
+
+gateway_group_id = security_group_find_or_create(ec2, name, vpc_id, [22, 80, 443])
+cluster_group_id = security_group_find(ec2, cluster_id)
+subnet_id = subnet_find(ec2, cluster_id)
+
+ec2.authorize_security_group_ingress(
+    GroupId=cluster_group_id,
+    IpPermissions=[
+        {'IpProtocol': 'tcp',
+         'FromPort': 8080,
+         'ToPort': 8080,
+         'UserIdGroupPairs': [{'GroupId': gateway_group_id}]}
+    ])
 
 instances = ec2.run_instances(
   ImageId=image_amzn_ami_x64,
   InstanceType=settings['instanceType'],
   KeyName=settings['keyPair'],
-  SecurityGroupIds=[security_group_id],
+  SecurityGroupIds=[gateway_group_id],
+  SubnetId=subnet_id,
   MinCount=1,
   MaxCount=1
 )['Instances']
@@ -30,9 +47,6 @@ if len(instances) < 1:
 time.sleep(0.5)
 
 instance = boto3.resource('ec2').Instance(instances[0]['InstanceId'])
-
-name = '%s.gateway'%(cluster_id)
-
 instance.create_tags(Tags=[{'Key':'Name', 'Value': name}])
 
 print('Starting instance %s (name=%s) ...'%(instance.instance_id, name), end ='')

@@ -65,7 +65,6 @@ securityGroup = list(vpc.security_groups.all())[0]
 ec2.create_tags(Resources=[securityGroup.id], Tags=[{'Key':'Name', 'Value': clusterId}])
 
 ec2.authorize_security_group_ingress(GroupId=securityGroup.id, IpProtocol="tcp", CidrIp="0.0.0.0/0", FromPort=22, ToPort=22)
-ec2.authorize_security_group_ingress(GroupId=securityGroup.id, IpProtocol="tcp", CidrIp="0.0.0.0/0", FromPort=8080, ToPort=8080)
 
 # Create EC2 instances
 print('Launching instances with image %s ...'%(imageId))
