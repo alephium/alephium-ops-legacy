@@ -53,7 +53,8 @@ alephium {
   }
 
   rpc {
-    viewerBlockAgeLimit = 12 hours
+    network.interface = "0.0.0.0"
+    blockflowFetch.maxAge = 12 hours
   }
 
   bootstrap="_bootstrap_"

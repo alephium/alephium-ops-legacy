@@ -47,7 +47,7 @@ One can also use `pssh` to access multiple instances at once.
 
 Here is an other example to start mining on the whole cluster.
 
-  ./cluster-pssh.sh foo "curl -X PUT localhost:8080/mining"
+  ./cluster-pssh.sh foo "curl --data-binary '{"jsonrpc":"2.0","id":"curltext","method":"mining/start","params":[]}' -H 'content-type:text/plain;' http://127.0.0.1:8080/"
 
 ## TODO
 
