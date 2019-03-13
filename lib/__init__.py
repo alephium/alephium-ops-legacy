@@ -2,6 +2,7 @@ import boto3
 import json
 import subprocess
 import sys
+import time
 
 scp = 'scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -i default.pem'
 ssh = 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -T -i default.pem'
@@ -9,11 +10,32 @@ ssh = 'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -T -i def
 # Amazon Linux 2 AMI (HVM), SSD Volume Type
 image_amzn_ami_x64 = 'ami-02e680c4540db351e'
 
-def call_scp(public_ip, local, target):
-    sys_call(scp + ' %s ec2-user@%s:%s'%(local, public_ip, target))
+def image_find(ec2, packageId):
+    filters = [{'Name': 'tag:Name', 'Values': [packageId]}]
+    images = ec2.describe_images(Filters=filters, Owners=['self'])['Images']
+    if len(images) < 1:
+        return None
+    else:
+        return images[0]['ImageId']
 
-def call_ssh(public_ip, script):
-    print(sys_process(ssh + ' ec2-user@%s'%(public_ip), script))
+def instance_start(ec2, settings, security_group_id, userdata=''):
+    instances = ec2.run_instances(
+      ImageId=image_amzn_ami_x64,
+      InstanceType=settings['instanceType'],
+      KeyName=settings['keyPair'],
+      SecurityGroupIds=[security_group_id],
+      MinCount=1,
+      MaxCount=1
+    )['Instances']
+
+    if len(instances) < 1:
+      print('Could not start EC2 instance!')
+      sys.exit(1)
+
+    time.sleep(0.5)
+
+    instance = boto3.resource('ec2').Instance(instances[0]['InstanceId'])
+    return instance
 
 def security_group_find_or_create(ec2, vpc_id, name, ports):
     filters = [{'Name': 'tag:Name', 'Values': [name]}]
@@ -55,4 +77,11 @@ def vpc_default(ec2):
         print("Default VPC not found!")
         sys.exit(1)
     return vpcs[0]['VpcId']
+
+# Internals
+def call_scp(public_ip, local, target, flags=""):
+    sys_call(scp + ' %s %s ec2-user@%s:%s'%(flags, local, public_ip, target))
+
+def call_ssh(public_ip, script):
+    print(sys_process(ssh + ' ec2-user@%s'%(public_ip), script))
 

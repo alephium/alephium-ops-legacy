@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+import boto3
+
+from lib import *
+
+# Arguments
+if len(sys.argv) < 2:
+    print("syntax: cluster-create <CLUSTER_ID>")
+    exit(1)
+
+clusterId = sys.argv[1]
+
+# Initialize Boto3
+ec2 = boto3.client('ec2')
+
+# Terminate all instances
+instances = ec2.describe_instances(Filters=[
+    {'Name': 'tag:Name', 'Values': [clusterId]}, 
+    {'Name': 'instance-state-name', 'Values': ['running']}])['Reservations']
+
+instanceIds = list(map(lambda x: x['Instances'][0]['InstanceId'], instances))
+
+print('Rebooting %s instances ...'%(len(instances)))
+ec2.reboot_instances(InstanceIds=instanceIds)
+
+print('Waiting for instances to be all running ...')
+waiter = ec2.get_waiter('instance_running')
+waiter.wait(InstanceIds=instanceIds)
+
+print("Done.")

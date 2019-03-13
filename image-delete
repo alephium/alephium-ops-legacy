@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+import boto3
+import sys
+
+from lib import *
+
+ec2 = boto3.client('ec2')
+
+settings = settings_read()
+packageId = settings['packageId']
+
+# Find and deregister AMI.
+imageId = image_find(ec2, packageId)
+if imageId is None:
+    print("Amazon Machine Image not found.")
+    sys.exit(1)
+
+ec2.deregister_image(ImageId=imageId)
+ec2.delete_tags(Resources=[imageId])
+
+# TODO Extract as wait_for(message, sleep, predicate)
+print('Deregister image %s ...'%(imageId), end = "")
+while imageId is not None:
+    time.sleep(1)
+    imageId = image_find(ec2, packageId)
+    print(".", end ="")
+print(" done.")
+
+# Remove snapshot
+snapshots = ec2.describe_snapshots(Filters=[{'Name': 'tag:Name', 'Values': [packageId]}])["Snapshots"]
+
+if len(snapshots) < 1:
+    print('Can not find snapshots for tag %s'%(packageId))
+    exit(1)
+
+snapshotId = snapshots[0]['SnapshotId']
+snapshot = boto3.resource('ec2').Snapshot(snapshotId)
+
+print('Remove snapshot %s ...'%(snapshotId))
+ec2.delete_tags(Resources=[snapshotId])
+snapshot.delete()
+
+print('Done.')

@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+import boto3
+
+from lib import *
+
+# Arguments
+if len(sys.argv) < 2:
+    print("syntax: cluster-create <CLUSTER_ID>")
+    exit(1)
+
+clusterId = sys.argv[1]
+domain = clusterId
+
+# Initialize Boto3
+ec2 = boto3.client('ec2')
+route53 = boto3.client('route53')
+
+session = boto3.session.Session()
+region = session.region_name
+
+# Terminate all instances
+instances = ec2.describe_instances(Filters=[
+    {'Name': 'tag:Name', 'Values': [clusterId]}, 
+    {'Name': 'instance-state-name', 'Values': ['running']}])['Reservations']
+
+instanceIds = list(map(lambda x: x['Instances'][0]['InstanceId'], instances))
+
+print('Terminating %s instances ...'%(len(instances)))
+ec2.terminate_instances(InstanceIds=instanceIds)
+
+print('Waiting for instances to be all stopped ...')
+waiter = ec2.get_waiter('instance_terminated')
+waiter.wait(InstanceIds=instanceIds)
+
+# Remove Route53 records and domain
+zoneId = route53.list_hosted_zones_by_name(DNSName=domain)['HostedZones'][0]['Id']
+record = route53.list_resource_record_sets(HostedZoneId=zoneId)['ResourceRecordSets'][2]
+
+route53.change_resource_record_sets(HostedZoneId=zoneId, 
+  ChangeBatch={
+    'Changes': [{
+        'Action': 'DELETE',
+        'ResourceRecordSet': record
+      }]
+  }
+)
+
+route53.delete_hosted_zone(Id=zoneId)
+
+# TODO Remove VPC
+# We must first delete all the dependencies! the console do it automatically... but there is no API for it.
+
+vpcId = ec2.describe_vpcs(Filters=[{'Name': 'tag:Name', 'Values': [clusterId]}])['Vpcs'][0]['VpcId']
+print('Please remove VPC with id `%s` and name `%s` in the AWS console!'%(vpcId, clusterId))

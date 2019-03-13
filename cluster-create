@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+import boto3
+import ipaddress
+import sys
+import time
+
+from lib import *
+
+# Arguments
+if len(sys.argv) < 2:
+    print("syntax: cluster-create <CLUSTER_ID>")
+    exit(1)
+
+clusterId = sys.argv[1]
+
+# Settings
+settings = settings_read()
+
+packageApp = settings['packageApp']
+packageId = settings['packageId']
+
+clusterSize = settings['cluster']['nodes']
+clusterGroups = settings['cluster']['groups']
+
+cidr = "10.0.0.0/21"
+domain = clusterId
+
+# Initialize Boto3
+ec2 = boto3.client('ec2')
+route53 = boto3.client('route53')
+
+session = boto3.session.Session()
+region = session.region_name
+
+# Find image
+print('Finding image for `%s` ...'%(packageId))
+imageId = image_find(ec2, packageId)
+if imageId is None:
+    print("Amazon Machine Image not found.")
+    sys.exit(1)
+
+# Create VPC and Subnet ...
+print('Creating VPC and Subnet with name `%s` ...'%(clusterId))
+
+vpcId = ec2.create_vpc(CidrBlock=cidr)['Vpc']['VpcId']
+vpc = boto3.resource('ec2').Vpc(vpcId)
+ec2.create_tags(Resources=[vpcId], Tags=[{'Key':'Name', 'Value': clusterId}])
+
+subnet = vpc.create_subnet(CidrBlock=cidr)
+ec2.create_tags(Resources=[subnet.id], Tags=[{'Key':'Name', 'Value': clusterId}])
+ec2.modify_subnet_attribute(SubnetId=subnet.id, MapPublicIpOnLaunch={'Value': True})
+
+# ... create and attach internet gateway, then route it to the subnet.
+gatewayId = ec2.create_internet_gateway()['InternetGateway']['InternetGatewayId']
+ec2.create_tags(Resources=[gatewayId], Tags=[{'Key':'Name', 'Value': clusterId}])
+vpc.attach_internet_gateway(InternetGatewayId=gatewayId)
+
+routeTable = list(vpc.route_tables.all())[0]
+ec2.create_tags(Resources=[routeTable.id], Tags=[{'Key':'Name', 'Value': clusterId}])
+ec2.create_route(RouteTableId=routeTable.id, DestinationCidrBlock="0.0.0.0/0", GatewayId=gatewayId)
+
+
+# Find default security group for this VPC and authorize SSH, WebSockets
+securityGroup = list(vpc.security_groups.all())[0]
+ec2.create_tags(Resources=[securityGroup.id], Tags=[{'Key':'Name', 'Value': clusterId}])
+
+ec2.authorize_security_group_ingress(GroupId=securityGroup.id, IpProtocol="tcp", CidrIp="0.0.0.0/0", FromPort=22, ToPort=22)
+ec2.authorize_security_group_ingress(GroupId=securityGroup.id, IpProtocol="tcp", CidrIp="0.0.0.0/0", FromPort=8080, ToPort=8080)
+
+# Create EC2 instances
+print('Launching instances with image %s ...'%(imageId))
+
+addrs = ipaddress.ip_network(cidr)
+with open('ec2.userdata.txt', 'r') as file:
+    userdataGlobal = file.read()
+
+userdataGlobal = userdataGlobal.replace('@nodes@', str(clusterSize))
+userdataGlobal = userdataGlobal.replace('@groups@', str(clusterGroups))
+userdataGlobal = userdataGlobal.replace('@zeros@', str(settings['cluster']['zeros']))
+
+instances = []
+
+for i in range(clusterSize):
+    userdata = userdataGlobal
+
+    if i == 0:
+        userdata = userdata.replace('@bootstrap@', '')
+    else:
+        userdata = userdata.replace('@bootstrap@', 'bootstrap.%s:9973'%(domain))
+
+    userdata = userdata.replace('@mainGroup@', str(i % clusterGroups))
+    userdata = userdata.replace('@publicAddress@', str(addrs[i]))
+
+    instanceId = ec2.run_instances(
+      ImageId=image_amzn_ami_x64,
+      InstanceType=settings['instanceType'],
+      KeyName=settings['keyPair'],
+      SecurityGroupIds=[securityGroup.id],
+      SubnetId=subnet.id,
+      MinCount=1,
+      MaxCount=1
+    )['Instances'][0]['InstanceId']
+
+    ec2.create_tags(Resources=[instanceId], Tags=[{'Key':'Name', 'Value': clusterId}])
+
+    instance = boto3.resource('ec2').Instance(instanceId)
+    instances.append(instance)
+
+
+print('Creating DNS domain `.%s` ...'%(domain))
+
+# Enable DNS support on the VPC
+ec2.modify_vpc_attribute(VpcId=vpcId, EnableDnsHostnames={'Value':True})
+ec2.modify_vpc_attribute(VpcId=vpcId, EnableDnsSupport={'Value':True})
+
+# Create Route53 domain
+zoneId = route53.create_hosted_zone(
+    Name=domain, CallerReference=str(time.time()), 
+    VPC={'VPCRegion': region, 'VPCId': vpcId})['HostedZone']['Id']
+
+# Add domain record for the bootstrap node
+route53.change_resource_record_sets(HostedZoneId=zoneId, 
+  ChangeBatch={
+    'Changes': [{
+        'Action': 'CREATE',
+        'ResourceRecordSet': {
+          'Name': 'bootstrap.%s'%(domain),
+          'Type': 'A',
+          'TTL': 300,
+          'ResourceRecords': [{
+            'Value': str(addrs[0])
+          }]
+        }
+      }]
+  }
+)
+
+# Waiting for all instances to be ready
+print("Waiting for instances to be all running ...")
+for instance in instances:
+    instance.wait_until_running()
+print("Done.")

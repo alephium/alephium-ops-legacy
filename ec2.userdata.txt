@@ -21,9 +21,6 @@ Content-Disposition: attachment; filename="userdata.txt"
 set -x
 exec > >(tee /var/log/user-data.log|logger -t user-data ) 2>&1
 
-# Setup nonces
-echo "@nonces@" > /root/.alephium/@noncesFile@
-
 # Setup configuration
 DATA=$(</root/.alephium/user.conf.tmpl)
 

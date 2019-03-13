@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+import boto3
+import os
+import stat
+import sys
+import time
+
+from lib import *
+
+ec2 = boto3.client('ec2')
+
+settings = settings_read()
+packageApp = settings['packageApp']
+packageId = settings['packageId']
+packageFile = '%s.zip'%(packageId)
+
+vpc_id = vpc_default(ec2)
+security_group_id = security_group_find_or_create(ec2, vpc_id, "images", [22])
+
+# Check if an AMI for this package version already exists
+image_id = image_find(ec2, packageId)
+if image_id is not None:
+    print('An image %s already exists for %s, please run `./image-delete.sh` before trying to recreate it.'%(image_id, packageId))
+    sys.exit(1)
+
+# Create and start instance
+instance = instance_start(ec2, settings, security_group_id)
+
+ec2.create_tags(Resources=[instance.id], Tags=[{'Key':'Name', 'Value': packageId}])
+
+print('Starting instance %s (from vanilla Linux AMI) ...'%(instance.id))
+
+instance.wait_until_running()
+
+# Connect to instance and install env
+os.chmod('./default.pem', stat.S_IRUSR | stat.S_IWUSR)
+
+public_ip = instance.public_ip_address
+
+# TODO Replace sleep with retry mechanism and timeout
+print('Waiting for SSH to start ...')
+time.sleep(10) # wait for SSH to be ready
+
+print('Connecting at %s to install environment...'%(public_ip))
+
+call_ssh(public_ip, """
+  sudo yum update -y
+  sudo yum remove -y java
+  sudo yum install -y java-1.8.0-openjdk
+""")
+
+# Copy and install application
+print('Install application ...')
+
+call_scp(public_ip, packageFile, '~')
+
+call_ssh(public_ip, """
+  cd /srv
+  sudo unzip ~/{packageFile}; rm ~/{packageFile}
+  sudo chmod +x /srv/{packageId}/{packageApp}
+  sudo ln -s /srv/{packageId}/{packageApp} /srv/app
+""".format(packageId=packageId, packageApp=packageApp, packageFile=packageFile))
+
+# Prepare home folder
+call_scp(public_ip, './home', '~', flags='-r')
+
+call_ssh(public_ip, """
+  sudo chown -R root:root ~/home
+  sudo cp -a ~/home/. /root/
+  sudo rm -rf ~/home
+""")
+
+print('')
+print('Create AMI image ...')
+
+image = instance.create_image(Name=packageId)
+image.wait_until_exists()
+image.create_tags(Tags=[{'Key':'Name', 'Value': packageId}])
+
+# Tag volume and snapshot
+volumes = ec2.describe_volumes(Filters=[{'Name':'attachment.instance-id', 'Values': [instance.id]}])['Volumes']
+if len(volumes) < 1:
+    print('Can not find volumes for instance %s'%(instance.id))
+    exit(1)
+
+volumeId = volumes[0]['VolumeId']
+volume = boto3.resource('ec2').Volume(volumeId)
+
+# TODO Replace sleep with retry mechanism and timeout
+print('Wait for snapshot to exists ...')
+time.sleep(10) 
+
+snapshots = ec2.describe_snapshots(Filters=[{'Name':'volume-id', 'Values': [volumeId]}])['Snapshots']
+if len(snapshots) < 1:
+    print('Can not find snapshots for volume %s'%(volumeId))
+    exit(1)
+
+snapshotId = snapshots[0]['SnapshotId']
+snapshot = boto3.resource('ec2').Snapshot(snapshotId)
+
+volume.create_tags(Tags=[{'Key':'Name', 'Value': packageId}])
+snapshot.create_tags(Tags=[{'Key':'Name', 'Value': packageId}])
+
+# Terminate instance and untag it
+instance.terminate()
+instance.delete_tags()
+
+print("Done.")
