@@ -49,6 +49,14 @@ Here is an other example to start mining on the whole cluster.
 
   ./cluster-pssh.sh foo "curl --data-binary '{"jsonrpc":"2.0","id":"curltext","method":"mining/start","params":[]}' -H 'content-type:text/plain;' http://127.0.0.1:8080/"
 
+## JMX
+
+You can attach a JVisualVM session to any node, first open a ssh tunnel with the following port bindings.
+
+  ssh -L 9010:localhost:9010 -L 9011:localhost:9011 -i default.pem ec2-user@<publicIp>
+
+You can now open a remote JMX connection is JVisualVM using `localhost:9010`.
+
 ## TODO
 
 - Upload the application to a S3 bucket, and then fetch from there.

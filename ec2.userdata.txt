@@ -39,9 +39,15 @@ chmod ug+r /root/.alephium/logs
 
 ln -s /root/.alephium/logs /var/log/alephium
 
+# Setup JMX
+export JMX_FLAGS="-Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.port=9010 -Djava.rmi.server.hostname=localhost -Dcom.sun.management.jmxremote.rmi.port=9011"
+
+# Workaround: https://stackoverflow.com/questions/20093854/jmx-agent-throws-java-net-malformedurlexception-when-host-name-is-set-to-all-num
+echo "127.0.0.1 $HOSTNAME" | sudo tee -a /etc/hosts
+
 # Startup
 export ALEPHIUM_ENV=prod
 export ALEPHIUM_HOME=/root/.alephium/
 
-/srv/app > /dev/null 2>&1 &
+/srv/app $JMX_FLAGS > /dev/null 2>&1 &
 --//
