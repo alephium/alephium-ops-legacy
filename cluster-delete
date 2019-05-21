@@ -25,12 +25,13 @@ instances = ec2.describe_instances(Filters=[
 
 instanceIds = list(map(lambda x: x['Instances'][0]['InstanceId'], instances))
 
-print('Terminating %s instances ...'%(len(instances)))
-ec2.terminate_instances(InstanceIds=instanceIds)
+if len(instanceIds) > 0:
+    print('Terminating %s instances ...'%(len(instances)))
+    ec2.terminate_instances(InstanceIds=instanceIds)
 
-print('Waiting for instances to be all stopped ...')
-waiter = ec2.get_waiter('instance_terminated')
-waiter.wait(InstanceIds=instanceIds)
+    print('Waiting for instances to be all stopped ...')
+    waiter = ec2.get_waiter('instance_terminated')
+    waiter.wait(InstanceIds=instanceIds)
 
 # Remove Route53 records and domain
 zoneId = route53.list_hosted_zones_by_name(DNSName=domain)['HostedZones'][0]['Id']

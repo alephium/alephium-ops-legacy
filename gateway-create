@@ -15,7 +15,7 @@ settings = settings_read()
 
 vpc_id = vpc_find(ec2, cluster_id)
 
-name = "%s.gateway"%(cluster_id)
+name = '%s.gateway'%(cluster_id)
 
 gateway_group_id = security_group_find_or_create(ec2, name, vpc_id, [22, 80, 443])
 cluster_group_id = security_group_find(ec2, cluster_id)
@@ -30,15 +30,20 @@ ec2.authorize_security_group_ingress(
          'UserIdGroupPairs': [{'GroupId': gateway_group_id}]}
     ])
 
+userdata = '(sleep %s; sudo shutdown -P now)&'%(str(settings['cluster']['timeToLive']))
+
 instances = ec2.run_instances(
   ImageId=image_amzn_ami_x64,
   InstanceType=settings['instanceType'],
   KeyName=settings['keyPair'],
   SecurityGroupIds=[gateway_group_id],
   SubnetId=subnet_id,
+  InstanceInitiatedShutdownBehavior='terminate',
+  UserData=userdata,
   MinCount=1,
   MaxCount=1
 )['Instances']
+
 
 if len(instances) < 1:
   print('Could not start EC2 instance!')

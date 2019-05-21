@@ -45,6 +45,9 @@ export JMX_FLAGS="-Dcom.sun.management.jmxremote=true -Dcom.sun.management.jmxre
 # Workaround: https://stackoverflow.com/questions/20093854/jmx-agent-throws-java-net-malformedurlexception-when-host-name-is-set-to-all-num
 echo "127.0.0.1 $HOSTNAME" | sudo tee -a /etc/hosts
 
+# Schedule shutdown
+(sleep @timeToLive@; sudo shutdown -P now)&
+
 # Startup
 export ALEPHIUM_ENV=prod
 export ALEPHIUM_HOME=/root/.alephium/

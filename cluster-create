@@ -76,6 +76,7 @@ with open('ec2.userdata.txt', 'r') as file:
 userdataGlobal = userdataGlobal.replace('@nodes@', str(clusterSize))
 userdataGlobal = userdataGlobal.replace('@groups@', str(clusterGroups))
 userdataGlobal = userdataGlobal.replace('@zeros@', str(settings['cluster']['zeros']))
+userdataGlobal = userdataGlobal.replace('@timeToLive@', str(settings['cluster']['timeToLive']))
 
 instances = []
 
@@ -96,6 +97,8 @@ for i in range(clusterSize):
       KeyName=settings['keyPair'],
       SecurityGroupIds=[securityGroup.id],
       SubnetId=subnet.id,
+      InstanceInitiatedShutdownBehavior='terminate',
+      UserData=userdata,
       MinCount=1,
       MaxCount=1
     )['Instances'][0]['InstanceId']
