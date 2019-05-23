@@ -92,7 +92,7 @@ for i in range(clusterSize):
     userdata = userdata.replace('@publicAddress@', str(addrs[i]))
 
     instanceId = ec2.run_instances(
-      ImageId=image_amzn_ami_x64,
+      ImageId=imageId,
       InstanceType=settings['instanceType'],
       KeyName=settings['keyPair'],
       SecurityGroupIds=[securityGroup.id],
