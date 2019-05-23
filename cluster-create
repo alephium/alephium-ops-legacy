@@ -23,6 +23,8 @@ clusterSize = settings['cluster']['nodes']
 clusterGroups = settings['cluster']['groups']
 
 cidr = "10.0.0.0/21"
+cidr_padding = 11
+
 domain = clusterId
 
 # Initialize Boto3
@@ -80,10 +82,10 @@ userdataGlobal = userdataGlobal.replace('@timeToLive@', str(settings['cluster'][
 
 instances = []
 
-for i in range(clusterSize):
+for i in range(cidr_padding, clusterSize + cidr_padding):
     userdata = userdataGlobal
 
-    if i == 0:
+    if i == cidr_padding:
         userdata = userdata.replace('@bootstrap@', '')
     else:
         userdata = userdata.replace('@bootstrap@', 'bootstrap.%s:9973'%(domain))
@@ -98,6 +100,7 @@ for i in range(clusterSize):
       SecurityGroupIds=[securityGroup.id],
       SubnetId=subnet.id,
       InstanceInitiatedShutdownBehavior='terminate',
+      PrivateIpAddress=str(addrs[i]),
       UserData=userdata,
       MinCount=1,
       MaxCount=1
@@ -130,7 +133,7 @@ route53.change_resource_record_sets(HostedZoneId=zoneId,
           'Type': 'A',
           'TTL': 300,
           'ResourceRecords': [{
-            'Value': str(addrs[0])
+            'Value': str(addrs[cidr_padding])
           }]
         }
       }]
