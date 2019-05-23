@@ -5,7 +5,7 @@ from lib import *
 
 # Arguments
 if len(sys.argv) < 2:
-    print("syntax: cluster-create <CLUSTER_ID>")
+    print("syntax: cluster-describe <CLUSTER_ID>")
     exit(1)
 
 clusterId = sys.argv[1]
@@ -14,7 +14,7 @@ clusterId = sys.argv[1]
 ec2 = boto3.client('ec2')
 route53 = boto3.client('route53')
 
-# Terminate all instances
+# List all instances
 instances = ec2.describe_instances(Filters=[
     {'Name': 'tag:Name', 'Values': [clusterId]}, 
     {'Name': 'instance-state-name', 'Values': ['running']}])['Reservations']

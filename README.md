@@ -26,7 +26,7 @@ Note: every resources created by `image-create` are tagged using $PACKAGE_NAME-$
 - Copy `settings.json.tmpl` as `settings.json` and populate accordingly
   - Add package file `<packageId>.zip` in project root
 
-- Build the AMI image with `./image-create.sh`
+- Build the AMI image with `./image-create`
 
 ### cluster-create
 
@@ -64,10 +64,10 @@ You can now open a remote JMX connection is JVisualVM using `localhost:9010`.
 
 ### cluster-delete
 
-You can delete the cluster once you are done with it using `./cluster-delete.sh $CLUSTER_ID`.
+You can delete the cluster once you are done with it using `./cluster-delete $CLUSTER_ID`.
 
 ### image-delete
 
-In order to completely remove an image from the ELS storage, one can run `./image-delete.sh`.
+In order to completely remove an image from the ELS storage, one can run `./image-delete`.
 
 This can be used to recreate the image of a same package version with an update package file.
