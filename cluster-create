@@ -23,7 +23,7 @@ clusterSize = settings['cluster']['nodes']
 clusterGroups = settings['cluster']['groups']
 
 cidr = "10.0.0.0/21"
-cidr_padding = 11
+cidr_padding = 11 # First addresses are reserved by AWS, so we don't use them.
 
 domain = clusterId
 

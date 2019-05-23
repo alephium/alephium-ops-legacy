@@ -45,9 +45,12 @@ One can also use `pssh` to access multiple instances at once.
 
   ./cluster-pssh.sh foo "tail /root/.alephium/logs/alephium.log"
 
-Here is an other example to start mining on the whole cluster.
 
-  ./cluster-pssh.sh foo "curl --data-binary '{"jsonrpc":"2.0","id":"curltext","method":"mining/start","params":[]}' -H 'content-type:text/plain;' http://127.0.0.1:8080/"
+### cluster-rpc-call
+
+One can do RPC call accross the whole cluster, for example to start mining.
+
+  ./cluster-rpc-call foo mining/start
 
 ## JMX
 
