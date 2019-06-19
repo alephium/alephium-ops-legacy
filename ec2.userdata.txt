@@ -21,6 +21,24 @@ Content-Disposition: attachment; filename="userdata.txt"
 set -x
 exec > >(tee /var/log/user-data.log|logger -t user-data ) 2>&1
 
+# Tune network buffers
+sudo cat > /tmp/00-network.conf << EOF
+
+net.core.wmem_max=12582912
+net.core.rmem_max=12582912
+net.ipv4.tcp_rmem= 10240 87380 12582912
+net.ipv4.tcp_wmem= 10240 87380 12582912
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_no_metrics_save = 1
+net.core.netdev_max_backlog = 5000
+net.ipv4.tcp_sack = 1
+net.ipv4.tcp_timestamps = 1
+
+EOF
+
+sudo mv /tmp/00-network.conf /etc/sysctl.conf
+sudo sysctl -p
+
 # Setup configuration
 DATA=$(</root/.alephium/user.conf.tmpl)
 

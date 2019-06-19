@@ -15,7 +15,8 @@ packageId = settings['packageId']
 packageFile = '%s.zip'%(packageId)
 
 vpc_id = vpc_default(ec2)
-security_group_id = security_group_find_or_create(ec2, vpc_id, "images", [22])
+print(vpc_id)
+security_group_id = 'sg-0b55148a718290437' # security_group_find_or_create(ec2, vpc_id, "images", [22])
 
 # Check if an AMI for this package version already exists
 image_id = image_find(ec2, packageId)

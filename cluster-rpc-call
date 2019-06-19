@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+import boto3
+import json
+import multiprocessing
+
+from lib import *
+
+# Arguments
+if len(sys.argv) < 3:
+    print("syntax: cluster-rpc-call <CLUSTER_ID> <RPC_METHOD>")
+    exit(1)
+
+clusterId = sys.argv[1]
+rpc_method = sys.argv[2]
+
+# Initialize Boto3
+ec2 = boto3.client('ec2')
+route53 = boto3.client('route53')
+
+instances = ec2.describe_instances(Filters=[
+    {'Name': 'tag:Name', 'Values': [clusterId]}, 
+    {'Name': 'instance-state-name', 'Values': ['running']}])['Reservations']
+
+def run(instance):
+    instance_id = instance['Instances'][0]['InstanceId']
+    ip_private = instance['Instances'][0]['PrivateIpAddress']
+    ip_public = instance['Instances'][0]['PublicIpAddress']
+
+    print('calling %s@%s ...'%(instance_id, ip_private))
+
+    request = {}
+    request['jsonrpc'] = '2.0'
+    request['id'] = 'alephium-ops'
+    request['method'] = rpc_method
+    request['params'] = []
+
+    request_json = json.dumps(request)
+
+    call_ssh(ip_public, """
+      curl --data-binary '{request_json}' -H 'content-type:application/json' http://127.0.0.1:8080/
+    """.format(request_json=request_json))
+
+
+pool = multiprocessing.Pool(multiprocessing.cpu_count())
+pool.map(run, instances)
+pool.close()

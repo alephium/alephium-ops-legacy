@@ -84,7 +84,7 @@ call_ssh(public_ip, """
 """)
 
 print('')
-print('Uploading docker image (`nginx-gateway`) and website (`../www`) ...')
+print('Uploading docker image (`nginx-gateway`) and viewer website (`../www-viewer`) ...')
 
 sys_call("tar cvfz nginx-gateway.tgz --exclude='.*' --exclude='node_modules' -h nginx-gateway")
 call_scp(public_ip, 'nginx-gateway.tgz', '~')

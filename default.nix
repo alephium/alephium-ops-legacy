@@ -11,7 +11,7 @@ with import <nixpkgs> {}; {
       ipcalc jq openssh
       python3 python35.pkgs.pip python35.pkgs.virtualenv
       # optional
-      pssh
+      pssh ws
     ];
   };
 }
