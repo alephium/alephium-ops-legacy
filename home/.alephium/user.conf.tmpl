@@ -1,55 +1,22 @@
-akka {
-  loglevel = "DEBUG"
-  loggers = ["akka.event.slf4j.Slf4jLogger"]
-  logging-filter = "akka.event.slf4j.Slf4jLoggingFilter"
-
-  io.tcp.register-timeout = 1m
-
-  actor {
-    default-dispatcher {
-      executor = "fork-join-executor"
-      fork-join-executor {
-        parallelism-factor = 0.5
-      }
-      throughput = 1
-    }
-
-    mining-dispatcher {
-      type = Dispatcher
-      executor = "fork-join-executor"
-      fork-join-executor {
-        parallelism-factor = 0.5
-      }
-      throughput = 1
-    }
-
-    guardian-supervisor-strategy = "org.alephium.util.DefaultStrategy"
-  }
-}
-
 alephium {
-  numZerosAtLeastInHash = _zeros_
-  blockTargetTime = 4 minutes
-  blockConfirmNum = 10
-  retargetInterval = 60 // number of blocks;
-
-  port = 9973
   groups = _groups_
-  pingFrequency = 300 second
-  retryTimeout = 300 second
 
-  nonceStep = 10000
+  clique {
+    brokerNum = _groups_
+  }
 
-  mainGroup = _mainGroup_
 
-  discovery {
-    publicAddress = "_publicAddress_"
-    udpPort = ${alephium.port}
-    peersPerGroup = 16
-    scanMaxPerGroup = 8
-    scanFrequency = 120.seconds
-    scanFastFrequency = 10.seconds
-    neighborsPerGroup = 8
+  broker {
+    brokerId = _brokerId_
+  }
+
+  consensus {
+    numZerosAtLeastInHash = _zeros_
+  }
+
+  network {
+    publicAddress = "_publicAddress_:9973"
+    masterAddress = "_masterAddress_:9973"
   }
 
   rpc {

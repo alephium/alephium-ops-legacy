@@ -79,6 +79,7 @@ userdataGlobal = userdataGlobal.replace('@nodes@', str(clusterSize))
 userdataGlobal = userdataGlobal.replace('@groups@', str(clusterGroups))
 userdataGlobal = userdataGlobal.replace('@zeros@', str(settings['cluster']['zeros']))
 userdataGlobal = userdataGlobal.replace('@timeToLive@', str(settings['cluster']['timeToLive']))
+userdataGlobal = userdataGlobal.replace('@masterAddress@', str(addrs[cidr_padding]))
 
 instances = []
 
@@ -90,7 +91,7 @@ for i in range(cidr_padding, clusterSize + cidr_padding):
     else:
         userdata = userdata.replace('@bootstrap@', 'bootstrap.%s:9973'%(domain))
 
-    userdata = userdata.replace('@mainGroup@', str(i % clusterGroups))
+    userdata = userdata.replace('@brokerId@', str(i - cidr_padding))
     userdata = userdata.replace('@publicAddress@', str(addrs[i]))
 
     instanceId = ec2.run_instances(

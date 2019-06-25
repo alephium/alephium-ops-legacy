@@ -19,6 +19,7 @@ echo ""
 echo Accessing cluster \"$CLUSTER_ID\" containing $INSTANCES instances.
 echo ""
 
+
 while [ $INSTANCES != $I ]
 do
   INSTANCE_ID=$(echo $OUTPUT | jq -r ".Reservations[$I].Instances[0].InstanceId")
