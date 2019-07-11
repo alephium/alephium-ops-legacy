@@ -21,6 +21,7 @@ packageId = settings['packageId']
 
 clusterSize = settings['cluster']['nodes']
 clusterGroups = settings['cluster']['groups']
+clusterBrokerNum = settings['cluster']['brokerNum']
 
 cidr = "10.0.0.0/21"
 cidr_padding = 11 # First addresses are reserved by AWS, so we don't use them.
@@ -77,22 +78,26 @@ with open('ec2.userdata.txt', 'r') as file:
 
 userdataGlobal = userdataGlobal.replace('@nodes@', str(clusterSize))
 userdataGlobal = userdataGlobal.replace('@groups@', str(clusterGroups))
+userdataGlobal = userdataGlobal.replace('@brokerNum@', str(clusterBrokerNum))
 userdataGlobal = userdataGlobal.replace('@zeros@', str(settings['cluster']['zeros']))
 userdataGlobal = userdataGlobal.replace('@timeToLive@', str(settings['cluster']['timeToLive']))
-userdataGlobal = userdataGlobal.replace('@masterAddress@', str(addrs[cidr_padding]))
 
 instances = []
 
 for i in range(cidr_padding, clusterSize + cidr_padding):
+    i_master = cidr_padding + (((i - cidr_padding) // clusterBrokerNum) * clusterBrokerNum)
+
     userdata = userdataGlobal
 
-    if i == cidr_padding:
+    if i_master == cidr_padding:
         userdata = userdata.replace('@bootstrap@', '')
     else:
-        userdata = userdata.replace('@bootstrap@', 'bootstrap.%s:9973'%(domain))
+        bootstrap = addrs[((i - cidr_padding) % clusterBrokerNum) + cidr_padding]
+        userdata = userdata.replace('@bootstrap@', str(bootstrap) + ':9973')
 
-    userdata = userdata.replace('@brokerId@', str(i - cidr_padding))
+    userdata = userdata.replace('@brokerId@', str(i - i_master))
     userdata = userdata.replace('@publicAddress@', str(addrs[i]))
+    userdata = userdata.replace('@masterAddress@', str(addrs[i_master]))
 
     instanceId = ec2.run_instances(
       ImageId=imageId,

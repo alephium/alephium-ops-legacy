@@ -44,6 +44,7 @@ DATA=$(</root/.alephium/user.conf.tmpl)
 
 DATA=${DATA//_bootstrap_/@bootstrap@}
 DATA=${DATA//_groups_/@groups@}
+DATA=${DATA//_brokerNum_/@brokerNum@}
 DATA=${DATA//_brokerId_/@brokerId@}
 DATA=${DATA//_publicAddress_/@publicAddress@}
 DATA=${DATA//_masterAddress_/@masterAddress@}
