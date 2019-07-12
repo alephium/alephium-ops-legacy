@@ -107,4 +107,6 @@ def call_scp(public_ip, local, target, flags=""):
     sys_call(scp + ' %s %s ec2-user@%s:%s'%(flags, local, public_ip, target))
 
 def call_ssh(public_ip, script):
-    print(sys_process(ssh + ' ec2-user@%s'%(public_ip), script))
+    result = sys_process(ssh + ' ec2-user@%s'%(public_ip), script)
+    print(result)
+    return result

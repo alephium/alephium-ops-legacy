@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+import boto3
+import multiprocessing
+
+from lib import *
+
+# Arguments
+if len(sys.argv) < 2:
+    print("syntax: cluster-health <CLUSTER_ID>")
+    exit(1)
+
+clusterId = sys.argv[1]
+
+# Initialize Boto3
+ec2 = boto3.client('ec2')
+route53 = boto3.client('route53')
+
+instances = ec2.describe_instances(Filters=[
+    {'Name': 'tag:Name', 'Values': [clusterId]}, 
+    {'Name': 'instance-state-name', 'Values': ['running']}])['Reservations']
+
+def run(instance):
+    instance_id = instance['Instances'][0]['InstanceId']
+    ip_private = instance['Instances'][0]['PrivateIpAddress']
+    ip_public = instance['Instances'][0]['PublicIpAddress']
+
+    print('calling %s@%s ...'%(instance_id, ip_private))
+
+    result = call_ssh(ip_public, 'cat /root/.alephium/logs/alephium-errors.log | grep ERROR | wc -l')
+    return int(result.split('\n')[-2])
+
+
+pool = multiprocessing.Pool(multiprocessing.cpu_count())
+counts = pool.map(run, instances)
+pool.close()
+
+errors = sum(counts)
+
+if errors >0:
+    print('There is %d errors in the cluster.'%(errors))
+    print('')
+    print('UNHEALTHY')
+    exit(errors)
+else:
+    print('HEALTHY')
