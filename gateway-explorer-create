@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+import boto3
+import sys
+import time
+
+from lib import *
+
+gatewayName = "explorer"
+
+packageApp = 'bin/explorer'
+packageId = 'explorer-0.2.0-SNAPSHOT'
+packageFile = '%s.zip'%(packageId)
+
+cluster_id          = sys.argv[1]
+
+ec2 = boto3.client('ec2')
+
+settings = settings_read()
+
+vpc_id = vpc_find(ec2, cluster_id)
+
+name = '%s.%s'%(cluster_id, gatewayName)
+
+gateway_group_id = security_group_find_or_create(ec2, name, vpc_id, [22, 80])
+cluster_group_id = security_group_find(ec2, cluster_id)
+subnet_id = subnet_find(ec2, cluster_id)
+
+try:
+    ec2.authorize_security_group_ingress(
+        GroupId=cluster_group_id,
+        IpPermissions=[
+            {'IpProtocol': 'tcp',
+             'FromPort': 8080,
+             'ToPort': 8080,
+             'UserIdGroupPairs': [{'GroupId': gateway_group_id}]}
+    ])
+except:
+    print("WARNING: " + str(sys.exc_info()))
+
+
+userdata = '(sleep %s; sudo shutdown -P now)&'%(str(settings['cluster']['timeToLive']))
+
+instances = ec2.run_instances(
+  ImageId=image_amzn_ami_x64,
+  InstanceType=settings['instanceType'],
+  KeyName=settings['keyPair'],
+  SecurityGroupIds=[gateway_group_id],
+  SubnetId=subnet_id,
+  InstanceInitiatedShutdownBehavior='terminate',
+  UserData=userdata,
+  MinCount=1,
+  MaxCount=1
+)['Instances']
+
+
+if len(instances) < 1:
+  print('Could not start EC2 instance!')
+  sys.exit(1)
+
+time.sleep(0.5)
+
+instance = boto3.resource('ec2').Instance(instances[0]['InstanceId'])
+instance.create_tags(Tags=[{'Key':'Name', 'Value': name}])
+
+print('Starting instance %s (name=%s) ...'%(instance.instance_id, name), end ='')
+sys.stdout.flush()
+
+state = ""
+while (state != "ok"):
+  time.sleep(1)
+  statuses=ec2.describe_instance_status(InstanceIds=[instance.instance_id])['InstanceStatuses']
+  if len(statuses) > 0:
+    state=statuses[0]['SystemStatus']['Status']
+    print('.', end='')
+    sys.stdout.flush()
+
+print(' done.')
+
+instances = ec2.describe_instances(InstanceIds=[instance.instance_id])['Reservations'][0]['Instances']
+if len(instances) < 1:
+  print('Could not start find EC2 instance IP address!')
+  sys.exit(1)
+
+public_ip=instances[0]['NetworkInterfaces'][0]['PrivateIpAddresses'][0]['Association']['PublicIp']
+
+
+print('Connecting at %s to install environment...'%(public_ip))
+call_ssh(public_ip, """
+  sudo yum update -y
+  sudo yum remove -y java
+  sudo yum install -y java-1.8.0-openjdk
+""")
+
+print('Install application ...')
+
+call_scp(public_ip, packageFile, '~')
+
+call_ssh(public_ip, """
+  cd /srv
+  sudo unzip ~/{packageFile}; rm ~/{packageFile}
+  sudo chmod +x /srv/{packageId}/{packageApp}
+  sudo ln -s /srv/{packageId}/{packageApp} /srv/app
+""".format(packageId=packageId, packageApp=packageApp, packageFile=packageFile))
+
+print('')
+print('Start application ...')
+
+call_ssh(public_ip, """
+  nohup sudo sh -c "/srv/app 80 ws://10.0.0.11:8080 >> /var/log/app.log &"
+""")
+
+print('')
+print('Gateway ready at %s (%s)'%(public_ip, instance.id))
