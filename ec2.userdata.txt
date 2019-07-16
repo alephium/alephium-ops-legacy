@@ -42,12 +42,14 @@ sudo sysctl -p
 # Setup configuration
 DATA=$(</root/.alephium/user.conf.tmpl)
 
-DATA=${DATA/_bootstrap_/@bootstrap@}
-DATA=${DATA/_groups_/@groups@}
-DATA=${DATA/_mainGroup_/@mainGroup@}
-DATA=${DATA/_publicAddress_/@publicAddress@}
-DATA=${DATA/_nodes_/@nodes@}
-DATA=${DATA/_zeros_/@zeros@}
+DATA=${DATA//_bootstrap_/@bootstrap@}
+DATA=${DATA//_groups_/@groups@}
+DATA=${DATA//_brokerNum_/@brokerNum@}
+DATA=${DATA//_brokerId_/@brokerId@}
+DATA=${DATA//_publicAddress_/@publicAddress@}
+DATA=${DATA//_masterAddress_/@masterAddress@}
+DATA=${DATA//_nodes_/@nodes@}
+DATA=${DATA//_zeros_/@zeros@}
 
 echo "$DATA" > /root/.alephium/user.conf
 
