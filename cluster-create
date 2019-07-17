@@ -22,6 +22,7 @@ packageId = settings['packageId']
 clusterSize = settings['cluster']['nodes']
 clusterGroups = settings['cluster']['groups']
 clusterBrokerNum = settings['cluster']['brokerNum']
+volumeSize = int(settings['volumeSize'])
 
 cidr = "10.0.0.0/21"
 cidr_padding = 11 # First addresses are reserved by AWS, so we don't use them.
@@ -84,6 +85,13 @@ userdataGlobal = userdataGlobal.replace('@timeToLive@', str(settings['cluster'][
 
 instances = []
 
+blockDevice = {
+    'DeviceName': '/dev/xvda',
+    'Ebs': {
+        'VolumeSize': volumeSize
+    }
+}
+
 for i in range(cidr_padding, clusterSize + cidr_padding):
     i_master = cidr_padding + (((i - cidr_padding) // clusterBrokerNum) * clusterBrokerNum)
 
@@ -107,6 +115,7 @@ for i in range(cidr_padding, clusterSize + cidr_padding):
       SubnetId=subnet.id,
       InstanceInitiatedShutdownBehavior='terminate',
       PrivateIpAddress=str(addrs[i]),
+      BlockDeviceMappings=[blockDevice],
       UserData=userdata,
       MinCount=1,
       MaxCount=1
