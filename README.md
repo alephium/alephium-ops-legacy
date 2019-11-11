@@ -4,6 +4,12 @@ See `buildInputs` value in the file `default.nix` to get the list of requiered t
 
 # Usage
 
+### Running a local network
+
+After building `alephium-blockflow` you can start it as the following example:
+
+```ALEPHIUM_ENV=prod groups=4 brokerNum=2 nodes=4 ./make run```
+
 ### Workflow
 
 One should first create an AMI (Amazon Machine Image) for a given package version, this image will then be used to create one or many VPC clusters.
