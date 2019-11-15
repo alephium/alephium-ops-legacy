@@ -22,6 +22,7 @@ packageId = settings['packageId']
 clusterSize = settings['cluster']['nodes']
 clusterGroups = settings['cluster']['groups']
 clusterBrokerNum = settings['cluster']['brokerNum']
+clusterNodesPerClique = int(clusterGroups) // int(clusterBrokerNum)
 volumeSize = int(settings['volumeSize'])
 
 cidr = "10.0.0.0/21"
@@ -92,7 +93,7 @@ blockDevice = {
     }
 }
 
-for i in range(cidr_padding, clusterSize + cidr_padding):
+def runInstance(i, tagValue):
     i_master = cidr_padding + (((i - cidr_padding) // clusterBrokerNum) * clusterBrokerNum)
 
     userdata = userdataGlobal
@@ -121,11 +122,18 @@ for i in range(cidr_padding, clusterSize + cidr_padding):
       MaxCount=1
     )['Instances'][0]['InstanceId']
 
-    ec2.create_tags(Resources=[instanceId], Tags=[{'Key':'Name', 'Value': clusterId}])
+    ec2.create_tags(Resources=[instanceId], Tags=[{'Key':'Name', 'Value': tagValue}])
 
     instance = boto3.resource('ec2').Instance(instanceId)
     instances.append(instance)
 
+# Run instances for active (mining) cliques
+for i in range(cidr_padding, clusterSize + cidr_padding):
+    runInstance(i, clusterId)
+
+# Run instances for an additional idle clique
+for i in range(clusterSize + cidr_padding, clusterSize + cidr_padding + clusterNodesPerClique):
+    runInstance(i, clusterId + '.idle')
 
 print('Creating DNS domain `.%s` ...'%(domain))
 

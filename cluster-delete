@@ -20,7 +20,7 @@ region = session.region_name
 
 # Terminate all instances
 instances = ec2.describe_instances(Filters=[
-    {'Name': 'tag:Name', 'Values': [clusterId]}, 
+    {'Name': 'tag:Name', 'Values': [clusterId, clusterId + '.idle', clusterId + '.explorer']}, 
     {'Name': 'instance-state-name', 'Values': ['running']}])['Reservations']
 
 instanceIds = list(map(lambda x: x['Instances'][0]['InstanceId'], instances))

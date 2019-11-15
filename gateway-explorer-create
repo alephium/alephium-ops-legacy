@@ -21,6 +21,18 @@ vpc_id = vpc_find(ec2, cluster_id)
 
 name = '%s.%s'%(cluster_id, gatewayName)
 
+# Fetch idle clique private addresses
+idles = ec2.describe_instances(Filters=[
+    {'Name': 'tag:Name', 'Values': [cluster_id]}, 
+    {'Name': 'instance-state-name', 'Values': ['running']}])['Reservations']
+
+if len(idles) < 1:
+    print('Can not find idle nodes to connect the explorer to.')
+    sys.exit(1)
+
+server = idles[0]['Instances'][0]['PrivateIpAddress']
+
+# Create gateway
 gateway_group_id = security_group_find_or_create(ec2, name, vpc_id, [22, 80])
 cluster_group_id = security_group_find(ec2, cluster_id)
 subnet_id = subnet_find(ec2, cluster_id)
@@ -106,8 +118,8 @@ print('')
 print('Start application ...')
 
 call_ssh(public_ip, """
-  nohup sudo sh -c "/srv/app 80 ws://10.0.0.11:8080 >> /var/log/app.log &"
-""")
+  nohup sudo sh -c "/srv/app 80 ws://{server}:8080 >> /var/log/app.log &"
+""".format(server=server))
 
 print('')
 print('Gateway ready at %s (%s)'%(public_ip, instance.id))
